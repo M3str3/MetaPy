@@ -1,13 +1,17 @@
-##################################################################
-#TODO                   Header      
-##################################################################
+# Imports
+import os
+from PyPDF2 import PdfFileReader,PdfReader,PdfWriter #XXX Check pdfFileReader
+import docx
 
+##################################################################
+#TODO                   Header
+##################################################################
 author = "Nacho Mestre"
 version = 1.0
 header = f"""
- __       __              __                _______            
-/  \     /  |            /  |              /       \           
-$$  \   /$$ |  ______   _$$ |_     ______  $$$$$$$  | __    __ 
+ __       __              __                _______
+/  \     /  |            /  |              /       \.
+$$  \   /$$ |  ______   _$$ |_     ______  $$$$$$$  | __    __
 $$$  \ /$$$ | /      \ / $$   |   /      \ $$ |__$$ |/  |  /  |
 $$$$  /$$$$ |/$$$$$$  |$$$$$$/    $$$$$$  |$$    $$/ $$ |  $$ |
 $$ $$ $$/$$ |$$    $$ |  $$ | __  /    $$ |$$$$$$$/  $$ |  $$ |
@@ -15,30 +19,94 @@ $$ |$$$/ $$ |$$$$$$$$/   $$ |/  |/$$$$$$$ |$$ |      $$ \__$$ |
 $$ | $/  $$ |$$       |  $$  $$/ $$    $$ |$$ |      $$    $$ |
 $$/      $$/  $$$$$$$/    $$$$/   $$$$$$$/ $$/        $$$$$$$ |
                                                      /  \__$$ |
-                                                     $$    $$/ 
-                                                      $$$$$$/  
+                                                     $$    $$/
+                                                      $$$$$$/
 Author: {author}
 Version: {version}
 """
+#######################################################################################################################################################
+#TODO                                                           Functions
+#######################################################################################################################################################
+def nav(msg=None):
+    current_path = os.getcwd()
+    loop = True
+    print(f"""
+    -------------
+    |    NAV    |
+    -------------
+    """)
+    if msg != None:
+        print(f"{msg}")    
+    while loop:
+        print(f"Current path: {current_path}")
+        options = []
+        dir_map = []
+        ind=0
+        print('------------------------------')
+        for x in os.listdir(current_path):
+            options.append(x)
+            if os.path.isdir(x):
+                print(f"{ind} - [ FOLDER ] {x}")
+                dir_map.append(True)
+            else:
+                print(f"{ind} - [ FILE ] {x}")
+                dir_map.append(False)
+            ind+=1
+        print('------------------------------')
+        print('".." to go back')
+        r = input("Select option -> ")
+        if (r==".."):
+            print("A MEDIAS")
+        elif (r!='' and dir_map[int(r)]==False):
+            return current_path+"/"+options[int(r)]
+        elif (r!='' and dir_map[int(r)]==True):
+            current_path += '/'+options[int(r)]
+        else:
+            return None
 
 #######################################################################################################################################################
 #TODO                                                           Extensions
 #######################################################################################################################################################
-#TODO PDF
-def pdf(fileName):
-    from PyPDF2 import PdfFileReader
-    pdfFile = PdfFileReader(open(fileName, 'rb'))
+
+#PDF -> https://pypdf2.readthedocs.io/en/latest/user/metadata.html
+def pdf_read_meta(filePath):
+    pdfFile = PdfFileReader(open(filePath, 'rb'))
     meta = pdfFile.getDocumentInfo()
+    print()
     for metaItem in meta:
         print(f'    {metaItem[1:]}: {meta[metaItem]}')
+    print()
     return meta
 
-#TODO DOCX
+def pdf_write_meta(filePath):
+    rd = PdfReader(filePath)
+    wr = PdfWriter()
+    for page in rd.pages:
+        wr.add_page(page)
+    print("")
+    fields = {
+    "/Author":input(f"Author: "),
+    "/Producer":input(f"Producer: "),
+    "/NeedAppearances": input(f"NeedAppearances: "),
+    }
+    wr.add_metadata(fields)
+    with open(filePath,'wb') as f:
+        wr.write(f)
 
+def pdf_clear_meta(filePath):
+    rd = PdfReader(filePath)
+    wr = PdfWriter()
+    for page in rd.pages:
+        wr.add_page(page)
+    fields = {"/Author":"","/Producer":"","/NeedAppearances":""}
+    wr.add_metadata(fields)
+    with open(filePath,'wb') as f:
+        wr.write(f)
+    
+#DOCX
 # READ
-def docx_read_meta(fileName):
-    import docx
-    doc = docx.Document(fileName)
+def docx_read_meta(filePath):
+    doc = docx.Document(filePath)
     metadata = {}
     properties = doc.core_properties
     print(f"""
@@ -71,9 +139,8 @@ def docx_read_meta(fileName):
     return metadata
 
 #Write
-def docx_edit_meta(fileName):
-    import docx
-    doc = docx.Document(fileName)
+def docx_write_meta(filePath):
+    doc = docx.Document(filePath)
     properties = doc.core_properties
     print("[*] Left empty to stay with same value")
 
@@ -92,7 +159,7 @@ def docx_edit_meta(fileName):
     c = input(f"Content_status: ({properties.content_status})")
     if c != '':
         doc.core_properties.content_status = c
-    
+
     c = input(f"Created: ({properties.created})")
     if c != '':
         doc.core_properties.created = c
@@ -130,16 +197,15 @@ def docx_edit_meta(fileName):
         doc.core_properties.version = c
     # Deleting the old One and replacing for new One.
     import os
-    os.remove(fileName)
-    doc.save(fileName)
+    os.remove(filePath)
+    doc.save(filePath)
 
 #CLEAR
-def docx_clear_meta(fileName):
-    import docx
+def docx_clear_meta(filePath):
     #XXX
     from datetime import datetime
     d = datetime.now()
-    doc = docx.Document(fileName)
+    doc = docx.Document(filePath)
     c=''
     doc.core_properties.author = c
     doc.core_properties.category = c
@@ -155,61 +221,83 @@ def docx_clear_meta(fileName):
     doc.core_properties.title = c
     doc.core_properties.version = c
     from os import remove as rm
-    rm(fileName)
-    doc.save(fileName)
+    rm(filePath)
+    doc.save(filePath)
 
 # Just To print empyt lines an clean the console
 def br(n_lines):
-    for l in range(1,n_lines):
+    for l in range(0,n_lines):
         print()
 
-def get_Extension(filePath):
-    import os 
-    filename, file_ext =  os.path.splitext(filePath)
-    return file_ext
+def clear():
+    os.system("cls")
 
+def get_Extension(filePath):
+    if (os.path.isfile(filePath)):
+        filePath, file_ext =  os.path.splitext(filePath)
+        return file_ext
+    return None
+
+#######################################################################################################################################################
+#TODO                                                           Main ()
+#######################################################################################################################################################
 if __name__ == '__main__':
-    print(header)
+    clear()
     loop = True;
     while loop:
         print(header)
         print('------------------')
         print("1. View Metadata")
-        print("2. Edit Metadata")
+        print("2. Edit & Write Metadata")
         print("3. Clear Metadata")
-        print('------------------')
+        br(2)
+        print("99.")
+        print("00. To exit")
         br(2)
         option = input("SELECT ANY OPTION -> ")
-
+        clear()
         #TODO PREVIEW
         if (option=='1'):
-            item = input("The file to preview metainfo -> ")
+            item = nav()
+            if item is None:
+                continue
             extension = get_Extension(item)
             if (extension == '.pdf'):
-                pdf(item)
+                pdf_read_meta(item)
             elif (extension == '.docx'):
                 docx_read_meta(item)
+            elif (extension == None):
+                print("File doesnt exists")
             else:
                 print("Invalid format ....")
             input('Press some key to continue.....')
-            br(30)
 
         #TODO EDIT
         elif (option=='2'):
-            item = input("The file to edit metainfo -> ")
+            item = nav("Select file to edit metainfo")
+            if item is None:
+                continue
             extension = get_Extension(item)
             if (extension == '.docx'):
-                metadata = docx_edit_meta(item)
+                docx_write_meta(item)
                 docx_read_meta(item)
-            
+            elif (extension == '.pdf'):
+                pdf_write_meta(item)
+            else:
+                input("Extension not accepted...")
         #TODO CLEAR
         elif (option=='3'):
-            item = input("[WARNING] File path to remove metainfo -> ")
+            item = nav("[WARNING] File path to remove metainfo ")#input("[WARNING] File path to remove metainfo -> ")
+            if item is None:
+                continue
             extension = get_Extension(item)
             if (extension == '.docx'):
                 docx_clear_meta(item)
+
         elif (option == '00'):
             exit(0)
+
         else:
-            print("xD")
+            input("Not valid option....")
         
+        clear()
